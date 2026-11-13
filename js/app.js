@@ -36,7 +36,7 @@
   function drawTerrain() {
     const step = 3, gw = Math.ceil(W / step) + 1, gh = Math.ceil(H / step) + 1;
     const field = new Float32Array(gw * gh), img = tctx.createImageData(gw, gh), paper = dark() ? [21, 24, 29] : [243, 237, 224];
-    const cols = voices.map(colorOf), fem = voices.map(v => v.sex === 'f' ? 1 : 0), gold = dark() ? hsl(42, 76, 54) : hsl(40, 78, 52), sg = sigma, inv = 1 / (2 * sg * sg), cinv = 1 / (2 * .11 * .11);
+    const cols = voices.map(colorOf), fem = voices.map(v => v.sex === 'f' ? 1 : 0), gold = dark() ? hsl(42, 76, 54) : hsl(40, 78, 52), sg = sigma, inv = 1 / (2 * .028 * .028), cinv = 1 / (2 * (sg * 1.8) ** 2);
     for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
       const px = i * step / W, py = j * step / H;
       // höjden (kurvorna) följer rösternas räckvidd; färgen är blandningen själv, lika stark ända in i dalarna mellan
@@ -66,7 +66,7 @@
     tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // höjdkurvor (marching squares), var femte lite kraftigare
     const levels = [];
-    for (let k = 1; k <= 14; k++) levels.push(.08 * Math.pow(1.32, k));
+    levels.push(.18, .32, .46, .6, .74, .86, .95);
     levels.forEach((lv, li) => {
       tctx.beginPath();
       for (let j = 0; j < gh - 1; j++) for (let i = 0; i < gw - 1; i++) {
@@ -87,7 +87,7 @@
           case 10: seg(top, right); seg(left, bottom); break;
         }
       }
-      const strong = li % 5 === 4;
+      const strong = li === 2;
       tctx.strokeStyle = dark() ? `rgba(236,229,214,${strong ? .22 : .1})` : `rgba(70,50,30,${strong ? .26 : .12})`;
       tctx.lineWidth = strong ? 1.1 : .7; tctx.stroke();
     });
@@ -137,9 +137,14 @@
     });
     // de röster som inte hörs först, under nålen; de som hörs efter nålen, så att de alltid går att läsa
     const label = i => {
-      const at = labels[i]; if (!at) return;
+      let at = labels[i]; if (!at) return;
       const v = voices[i], strong = w[i] > .25, heard = w[i] > .05;
       octx.font = `${strong ? '600' : 'italic 400'} ${at[2]}px Fraunces, Georgia, serif`; octx.textAlign = 'left';
+      if (heard) {
+        const hs = 1.2 + level * .5, head = [px - 12 * hs, py - 32 * hs, px + 12 * hs, py + 2];
+        const box = a => a[0] < head[2] && a[0] + a[3] > head[0] && a[1] - 8 < head[3] && a[1] + 8 > head[1];
+        if (box(at)) { const vx = voices[i].x * W, mx = at[0] > vx ? vx - 10 - at[3] : vx + 10; at = [mx, voices[i].y * H, at[2], at[3]]; }
+      }
       const under = !heard && Math.abs(at[0] + at[3] / 2 - px) < at[3] / 2 + 14 && at[1] > py - 42 && at[1] < py + 4;
       octx.lineJoin = 'round'; octx.miterLimit = 2;
       octx.lineWidth = dark() ? (strong ? 3 : 2.5) : (strong ? 4.5 : 3.5); octx.strokeStyle = dark() ? 'rgba(21,24,29,.55)' : 'rgba(250,246,238,.9)';
@@ -186,7 +191,7 @@
   let labels = [], legendBox = [];
   // ett namn hör till den prick som ligger närmast det: ingen annan by får ligga närmare namnet än den egna
   const boxDist = (v, b) => Math.hypot(Math.max(b[0] - v.x * W, 0, v.x * W - b[2]), Math.max(b[1] - v.y * H, 0, v.y * H - b[3]));
-  const ownNearest = (i, b) => { const d = boxDist(voices[i], b); return voices.every((v, k) => k === i || boxDist(v, b) > d + 3); };
+  const ownNearest = (i, b) => { const d = boxDist(voices[i], b); return voices.every((v, k) => k === i || boxDist(v, b) > d + 7); };
   function placeLabels() {
     const placed = [...legendBox];   // färgnyckeln längs nederkanten
     const dots = voices.map(v => [v.x * W - 7, v.y * H - 7, v.x * W + 7, v.y * H + 7]);
@@ -194,7 +199,7 @@
     labels = voices.map((v, i) => {
       const x = v.x * W, y = v.y * H, others = dots.filter((_, k) => k !== i);
       // 13 punkter om det går, annars 11, och först därefter inget namn
-      for (const size of W < 420 ? [12, 11, 9] : [13, 11]) {
+      for (const size of W < 420 ? [12, 11] : [13, 11]) {
         octx.font = `600 ${size}px Fraunces, Georgia, serif`;
         const tw = octx.measureText(v.name).width, th = size + 2;
         // höger, vänster, ovanför, under och snett: den första lediga platsen
