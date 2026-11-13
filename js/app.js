@@ -19,7 +19,7 @@
   }
   function colorOf(v) {
     const t = v.y;   // 0 överst
-    return v.sex === 'f' ? hsl(352 + 48 * t, 62, dark() ? 60 : 52) : hsl(168 + 52 * t, 48, dark() ? 56 : 42);
+    return v.sex === 'f' ? hsl(352 + 48 * t, dark() ? 78 : 62, dark() ? 60 : 52) : hsl(168 + 52 * t, dark() ? 66 : 48, dark() ? 54 : 42);
   }
   const css = c => `rgb(${c[0] | 0},${c[1] | 0},${c[2] | 0})`;
 
@@ -36,7 +36,7 @@
   function drawTerrain() {
     const step = 3, gw = Math.ceil(W / step) + 1, gh = Math.ceil(H / step) + 1;
     const field = new Float32Array(gw * gh), img = tctx.createImageData(gw, gh), paper = dark() ? [21, 24, 29] : [243, 237, 224];
-    const cols = voices.map(colorOf), fem = voices.map(v => v.sex === 'f' ? 1 : 0), gold = dark() ? hsl(42, 70, 58) : hsl(40, 78, 52), sg = sigma, inv = 1 / (2 * sg * sg), cinv = 1 / (2 * .11 * .11);
+    const cols = voices.map(colorOf), fem = voices.map(v => v.sex === 'f' ? 1 : 0), gold = dark() ? hsl(42, 88, 56) : hsl(40, 78, 52), sg = sigma, inv = 1 / (2 * sg * sg), cinv = 1 / (2 * .11 * .11);
     for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
       const px = i * step / W, py = j * step / H;
       // höjden (kurvorna) följer rösternas räckvidd; färgen är blandningen själv, lika stark ända in i dalarna mellan
@@ -50,7 +50,7 @@
       // där kvinno- och mansrösterna möts blir det inte grått utan guld: mellanrummet får en egen färg
       const between = Math.pow(4 * f * (1 - f), 1.5);
       r += (gold[0] - r) * between; g += (gold[1] - g) * between; b += (gold[2] - b) * between;
-      const tint = Math.min(1, cs * 1.4) * (dark() ? .5 : .4), o = (j * gw + i) * 4;
+      const tint = Math.min(1, cs * 1.4) * (dark() ? .68 : .4), o = (j * gw + i) * 4;
       // en svag papperstextur så att kartan inte blir plastig
       const grain = ((Math.sin(i * 12.9898 + j * 78.233) * 43758.5453) % 1) * 5;
       img.data[o] = paper[0] + (r - paper[0]) * tint + grain;
