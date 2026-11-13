@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="darkreader-lock">
+<title>Skånska röster</title>
+<meta name="description" content="En karta över fyrtio syntetiska röster från nordvästra Skåne. Dra nålen mellan dem och hör rösterna glida in i varandra.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #f3ede0; --paper-2: #ebe3d1; --ink: #2a2520; --ink-2: #5c534a; --ink-3: #8a8073; --line: #d6ccb8;
+    --red: #b8202f; --yellow: #e8ad13; --card: #faf6ee; --shadow: 0 1px 2px rgba(60, 40, 20, .08), 0 8px 30px rgba(60, 40, 20, .08);
+    --serif: 'Fraunces', Georgia, 'Times New Roman', serif; --sans: 'IBM Plex Sans', system-ui, sans-serif; --mono: 'IBM Plex Mono', ui-monospace, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper: #15181d; --paper-2: #1b1f26; --ink: #ece5d6; --ink-2: #b7ad9d; --ink-3: #7f776c; --line: #2c313a;
+      --red: #e0485a; --yellow: #f0bd3a; --card: #1b1f26; --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 30px rgba(0, 0, 0, .25);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --paper: #15181d; --paper-2: #1b1f26; --ink: #ece5d6; --ink-2: #b7ad9d; --ink-3: #7f776c; --line: #2c313a;
+    --red: #e0485a; --yellow: #f0bd3a; --card: #1b1f26; --shadow: 0 1px 2px rgba(0, 0, 0, .3), 0 8px 30px rgba(0, 0, 0, .25);
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--paper); color: var(--ink); font: 16px/1.55 var(--sans); -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 24px; }
+  header { padding: 44px 0 18px; }
+  .kicker { font: 500 12px/1 var(--sans); letter-spacing: .16em; text-transform: uppercase; color: var(--red); display: flex; align-items: center; gap: 10px; }
+  .kicker svg { width: 20px; height: 14px; border-radius: 2px; flex: none; }
+  h1 { font: 600 clamp(40px, 6vw, 72px)/1 var(--serif); letter-spacing: -.02em; margin: 14px 0 14px; font-variation-settings: 'opsz' 144; }
+  h1 em { font-style: italic; font-weight: 400; color: var(--ink-2); }
+  .lede { font: 400 clamp(17px, 1.6vw, 20px)/1.5 var(--serif); color: var(--ink-2); max-width: 46ch; margin: 0; }
+
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 28px; padding: 18px 0 40px; align-items: start; }
+  @media (max-width: 900px) { main { grid-template-columns: 1fr; } }
+
+  .mapcard { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); padding: 10px; position: relative; }
+  .map { position: relative; width: 100%; aspect-ratio: 5 / 4; border-radius: 12px; overflow: hidden; touch-action: none; cursor: crosshair; outline: none; }
+  @media (max-width: 600px) { .map { aspect-ratio: 1 / 1.05; } }
+  .map:focus-visible { box-shadow: 0 0 0 3px var(--yellow); }
+  .map canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+  .maphint { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 8px 4px; color: var(--ink-3); font-size: 13px; }
+  .maphint kbd { font: 12px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 5px; padding: 0 5px; color: var(--ink-2); background: var(--paper); }
+
+  .loading { position: absolute; inset: 10px; border-radius: 12px; display: grid; place-items: center; background: color-mix(in srgb, var(--card) 72%, transparent); backdrop-filter: blur(3px); transition: opacity .5s; z-index: 2; }
+  .loading.done { opacity: 0; pointer-events: none; }
+  .loading .box { text-align: center; max-width: 280px; }
+  .loading p { margin: 0 0 12px; font: 400 17px/1.4 var(--serif); }
+  .bar { height: 6px; border-radius: 6px; background: color-mix(in srgb, var(--ink) 10%, transparent); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--red), var(--yellow)); transition: width .2s; }
+  .loading small { display: block; margin-top: 8px; color: var(--ink-3); font-size: 12px; }
+
+  aside { display: flex; flex-direction: column; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px; box-shadow: var(--shadow); }
+  .card h2 { font: 500 12px/1 var(--sans); letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); margin: 0 0 12px; }
+  .now { min-height: 148px; }
+  .now .who { font: 600 26px/1.15 var(--serif); margin: 0 0 12px; min-height: 30px; }
+  .now .who em { font-weight: 400; font-style: italic; color: var(--ink-2); font-size: 20px; }
+  .mix { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+  .mix li { display: grid; grid-template-columns: 76px 1fr 38px; align-items: center; gap: 10px; font-size: 14px; }
+  .mix .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .mix .track { height: 8px; border-radius: 8px; background: color-mix(in srgb, var(--ink) 9%, transparent); overflow: hidden; }
+  .mix .track i { display: block; height: 100%; border-radius: 8px; transition: width .15s; }
+  .mix .pc { text-align: right; font: 12px var(--mono); color: var(--ink-3); }
+
+  textarea { width: 100%; min-height: 84px; resize: vertical; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--paper); color: var(--ink); font: 400 17px/1.4 var(--serif); }
+  textarea:focus { outline: 2px solid var(--yellow); outline-offset: 1px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip { border: 1px solid var(--line); background: var(--paper); color: var(--ink-2); border-radius: 999px; padding: 4px 10px; font: 13px var(--sans); cursor: pointer; }
+  .chip:hover { border-color: var(--ink-3); color: var(--ink); }
+  .row { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  button.main, button.sub { font: 600 14px var(--sans); border-radius: 10px; padding: 10px 14px; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; gap: 8px; }
+  button.main { background: var(--red); color: #fff; flex: 1; justify-content: center; }
+  button.main:hover { filter: brightness(1.06); }
+  button.main:disabled { opacity: .55; cursor: default; }
+  button.sub { background: transparent; color: var(--ink); border-color: var(--line); }
+  button.sub:hover { border-color: var(--ink-3); }
+  button.sub:disabled { opacity: .45; cursor: default; }
+  .status { margin-top: 10px; font-size: 13px; color: var(--ink-3); min-height: 20px; }
+
+  .knob { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; margin-top: 12px; font-size: 14px; }
+  .knob span { color: var(--ink-3); font: 12px var(--mono); }
+  .knob input { grid-column: 1 / -1; width: 100%; accent-color: var(--red); }
+  .knob .ends { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-3); margin-top: -2px; }
+  label.check { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+  label.check input { accent-color: var(--red); }
+
+  .about { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; padding: 28px 0 56px; border-top: 1px solid var(--line); }
+  @media (max-width: 900px) { .about { grid-template-columns: 1fr; gap: 8px; } }
+  .about h3 { font: 600 19px/1.3 var(--serif); margin: 0 0 6px; }
+  .about p { margin: 0 0 12px; color: var(--ink-2); font-size: 15px; }
+  footer { color: var(--ink-3); font-size: 13px; padding: 0 0 40px; }
+  .theme { position: fixed; top: 16px; right: 16px; background: var(--card); border: 1px solid var(--line); color: var(--ink-2); border-radius: 999px; width: 36px; height: 36px; cursor: pointer; font-size: 16px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+</style>
+</head>
+<body>
+<button class="theme" id="theme" aria-label="Byt mellan ljust och mörkt">☾</button>
+<div class="wrap">
+  <header>
+    <div class="kicker"><svg viewBox="0 0 20 14" aria-hidden="true"><rect width="20" height="14" fill="#c8102e"/><rect x="5.5" width="3" height="14" fill="#f2b705"/><rect y="5.5" width="20" height="3" fill="#f2b705"/></svg>Röstkarta · nordvästra Skåne</div>
+    <h1>Skånska röster <em>och allt däremellan</em></h1>
+    <p class="lede">Fyrtio röster från Helsingborg med omnejd, utlagda som byar på en karta. Dra nålen mellan dem och hör hur en röst glider över i nästa.</p>
+  </header>
+
+  <main>
+    <section class="mapcard" aria-label="Röstkartan">
+      <div class="map" id="map" tabindex="0" role="application" aria-label="Röstkarta. Dra nålen, eller flytta den med piltangenterna. Enter läser texten.">
+        <canvas id="terrain"></canvas>
+        <canvas id="overlay"></canvas>
+      </div>
+      <div class="loading" id="loading">
+        <div class="box">
+          <p id="loadText">Hämtar rösterna …</p>
+          <div class="bar"><i id="loadBar"></i></div>
+          <small id="loadSmall">ungefär 30 MB, en gång</small>
+        </div>
+      </div>
+      <div class="maphint">
+        <span>Dra nålen vart du vill · klicka på en by för att hoppa dit</span>
+        <span><kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> flyttar · <kbd>Enter</kbd> läser · <kbd>S</kbd> slumpar</span>
+      </div>
+    </section>
+
+    <aside>
+      <section class="card now" aria-live="polite">
+        <h2>Just nu hörs</h2>
+        <p class="who" id="who">–</p>
+        <ul class="mix" id="mix"></ul>
+      </section>
+
+      <section class="card">
+        <h2>Vad ska de säga?</h2>
+        <label class="sr" for="text">Text att läsa</label>
+        <textarea id="text" spellcheck="false">Hörru, ska vi ta färjan över till Helsingör i morgon?</textarea>
+        <div class="chips" id="chips"></div>
+        <div class="row">
+          <button class="main" id="play" disabled>▶ Läs upp</button>
+          <button class="sub" id="random" title="Slumpa en plats på kartan">⚄ Slumpa</button>
+          <button class="sub" id="save" disabled title="Spara den senaste repliken som ljudfil">↓ Spara</button>
+        </div>
+        <div class="status" id="status"></div>
+      </section>
+
+      <section class="card">
+        <h2>Rösten</h2>
+        <div class="knob"><label for="tempo">Tempo</label><span id="tempoV">1,00</span>
+          <input type="range" id="tempo" min="0.7" max="1.4" step="0.01" value="1">
+          <div class="ends"><span>snabbare</span><span>långsammare</span></div></div>
+        <div class="knob"><label for="life">Livlighet</label><span id="lifeV">0,80</span>
+          <input type="range" id="life" min="0" max="1.4" step="0.01" value="0.8">
+          <div class="ends"><span>jämn</span><span>levande</span></div></div>
+        <div class="knob"><label for="spread">Hur långt en röst når</label><span id="spreadV">0,07</span>
+          <input type="range" id="spread" min="0.03" max="0.2" step="0.005" value="0.07">
+          <div class="ends"><span>skarpa byar</span><span>allt flyter ihop</span></div></div>
+        <label class="check"><input type="checkbox" id="preview" checked> Säg ”hörru” medan du drar</label>
+      </section>
+    </aside>
+  </main>
+
+  <section class="about">
+    <div>
+      <h3>Vad är det här?</h3>
+      <p>En talsyntes som pratar skånska. Den har lärt sig av inspelade samtal med människor från Helsingborg och byarna runt omkring: hur de låter, hur melodin går och hur vokalerna glider.</p>
+      <p>Varje by på kartan är en röst. Mellan byarna finns inga inspelningar alls; där blandar modellen rösterna, och varje punkt på kartan är en röst som aldrig funnits.</p>
+    </div>
+    <div>
+      <h3>Hur kartan är ritad</h3>
+      <p>Röster som låter lika ligger nära varandra. Avstånden kommer från en röstigenkännare som jämfört hur rösterna klingar, och fyrtio dimensioner har pressats ner till två. Ljusare röster hamnade till vänster, mörkare till höger.</p>
+      <p>Färgen visar vems röst som dominerar, och höjdkurvorna hur tätt rösterna ligger. Namnen är påhittade.</p>
+    </div>
+    <div>
+      <h3>Allt sker hos dig</h3>
+      <p>Modellen (en Piper/VITS-röst på 20 MB) körs i din webbläsare. Ingen text och inget ljud skickas någonstans.</p>
+      <p>Uttalet kommer från ett eget lexikon med skånska regler: diftonger, mjuka konsonanter och skånsk ordmelodi. Ibland blir det fel, särskilt i ovanliga ord och namn.</p>
+    </div>
+  </section>
+  <footer>Byggd på Piper (OHF-Voice) och KBLab:s svenska NST-röst som grund. Rösterna är syntetiska.</footer>
+</div>
+<script src="js/app.js"></script>
+</body>
+</html>
