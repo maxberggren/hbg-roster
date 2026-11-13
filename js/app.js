@@ -36,21 +36,26 @@
   function drawTerrain() {
     const step = 3, gw = Math.ceil(W / step) + 1, gh = Math.ceil(H / step) + 1;
     const field = new Float32Array(gw * gh), img = tctx.createImageData(gw, gh), paper = dark() ? [21, 24, 29] : [243, 237, 224];
-    const cols = voices.map(colorOf), sg = sigma, inv = 1 / (2 * sg * sg);
+    const cols = voices.map(colorOf), fem = voices.map(v => v.sex === 'f' ? 1 : 0), gold = dark() ? hsl(42, 70, 58) : hsl(40, 78, 52), sg = sigma, inv = 1 / (2 * sg * sg), cinv = 1 / (2 * .11 * .11);
     for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
       const px = i * step / W, py = j * step / H;
-      let sum = 0, r = 0, g = 0, b = 0;
+      // höjden (kurvorna) följer rösternas räckvidd; färgen är blandningen själv, lika stark ända in i dalarna mellan
+      // byarna, och bleknar först där inga röster finns
+      let sum = 0, cs = 0, f = 0, r = 0, g = 0, b = 0;
       for (let k = 0; k < voices.length; k++) {
-        const dx = (voices[k].x - px) * W / S, dy = (voices[k].y - py) * H / S, w = Math.exp(-(dx * dx + dy * dy) * inv);
-        sum += w; r += w * cols[k][0]; g += w * cols[k][1]; b += w * cols[k][2];
+        const dx = (voices[k].x - px) * W / S, dy = (voices[k].y - py) * H / S, d2 = dx * dx + dy * dy, w = Math.exp(-d2 * cinv);
+        sum += Math.exp(-d2 * inv); cs += w; f += w * fem[k]; r += w * cols[k][0]; g += w * cols[k][1]; b += w * cols[k][2];
       }
-      field[j * gw + i] = sum;
-      const tint = (1 - Math.exp(-sum * 1.6)) * (dark() ? .55 : .42), o = (j * gw + i) * 4;
+      field[j * gw + i] = sum; r /= cs || 1; g /= cs || 1; b /= cs || 1; f /= cs || 1;
+      // där kvinno- och mansrösterna möts blir det inte grått utan guld: mellanrummet får en egen färg
+      const between = Math.pow(4 * f * (1 - f), 1.5);
+      r += (gold[0] - r) * between; g += (gold[1] - g) * between; b += (gold[2] - b) * between;
+      const tint = Math.min(1, cs * 1.4) * (dark() ? .5 : .4), o = (j * gw + i) * 4;
       // en svag papperstextur så att kartan inte blir plastig
       const grain = ((Math.sin(i * 12.9898 + j * 78.233) * 43758.5453) % 1) * 5;
-      img.data[o] = paper[0] + (r / (sum || 1) - paper[0]) * tint + grain;
-      img.data[o + 1] = paper[1] + (g / (sum || 1) - paper[1]) * tint + grain;
-      img.data[o + 2] = paper[2] + (b / (sum || 1) - paper[2]) * tint + grain;
+      img.data[o] = paper[0] + (r - paper[0]) * tint + grain;
+      img.data[o + 1] = paper[1] + (g - paper[1]) * tint + grain;
+      img.data[o + 2] = paper[2] + (b - paper[2]) * tint + grain;
       img.data[o + 3] = 255;
     }
     // den lilla bilden skalas upp mjukt till kartans storlek
@@ -86,27 +91,10 @@
       tctx.strokeStyle = dark() ? `rgba(236,229,214,${strong ? .22 : .1})` : `rgba(70,50,30,${strong ? .26 : .12})`;
       tctx.lineWidth = strong ? 1.1 : .7; tctx.stroke();
     });
-    // rutnät och kompass, som på en gammal karta
-    tctx.strokeStyle = dark() ? 'rgba(236,229,214,.05)' : 'rgba(70,50,30,.06)'; tctx.lineWidth = 1; tctx.beginPath();
-    for (let k = 1; k < 10; k++) { tctx.moveTo(k * W / 10, 0); tctx.lineTo(k * W / 10, H); tctx.moveTo(0, k * H / 10); tctx.lineTo(W, k * H / 10); }
-    tctx.stroke();
-    compass(W - 40, 44, 20);
     tctx.font = `italic 13px Fraunces, Georgia, serif`; tctx.fillStyle = dark() ? 'rgba(236,229,214,.45)' : 'rgba(70,50,30,.5)';
     tctx.textAlign = 'left'; tctx.fillText('← ljusare röster', 14, H - 16);
-    tctx.textAlign = 'right'; tctx.fillText('mörkare röster →', W - 86, H - 16);
+    tctx.textAlign = 'right'; tctx.fillText('mörkare röster →', W - 14, H - 16);
   }
-  function compass(x, y, r) {
-    const ink = dark() ? 'rgba(236,229,214,.5)' : 'rgba(70,50,30,.55)';
-    tctx.save(); tctx.translate(x, y); tctx.strokeStyle = ink; tctx.fillStyle = ink; tctx.lineWidth = 1;
-    tctx.beginPath(); tctx.arc(0, 0, r, 0, Math.PI * 2); tctx.stroke();
-    for (let k = 0; k < 4; k++) {
-      tctx.rotate(Math.PI / 2); tctx.beginPath(); tctx.moveTo(0, -r + 3); tctx.lineTo(4, 0); tctx.lineTo(-4, 0); tctx.closePath();
-      k === 3 ? tctx.fill() : tctx.stroke();
-    }
-    tctx.font = '600 11px "IBM Plex Sans", sans-serif'; tctx.textAlign = 'center'; tctx.fillText('N', 0, -r - 5);
-    tctx.restore();
-  }
-
   /* ---------- det som rör sig: byarna, nålen, trådarna till rösterna och ljudringarna ---------- */
   const rings = [];
   let level = 0;
@@ -115,12 +103,14 @@
     if (!voices.length) return;
     const w = weights(pin), px = pin.x * W, py = pin.y * H, ink = dark() ? '#ece5d6' : '#2a2520';
     // trådar från nålen till de röster som hörs, tjockare ju mer de väger
+    octx.lineCap = 'round';
     w.forEach((x, i) => {
       if (x < .03) return;
-      const v = voices[i]; octx.strokeStyle = css(colorOf(v)); octx.globalAlpha = .25 + .6 * x; octx.lineWidth = 1 + 5 * x;
-      octx.setLineDash(x > .3 ? [] : [3, 4]); octx.beginPath(); octx.moveTo(px, py); octx.lineTo(v.x * W, v.y * H); octx.stroke();
+      const v = voices[i], line = () => { octx.beginPath(); octx.moveTo(px, py); octx.lineTo(v.x * W, v.y * H); octx.stroke(); };
+      octx.globalAlpha = .7; octx.strokeStyle = dark() ? '#15181d' : '#faf6ee'; octx.lineWidth = 1.5 + 7 * x + 2; line();
+      octx.globalAlpha = .45 + .5 * x; octx.strokeStyle = css(colorOf(v)); octx.lineWidth = 1.5 + 7 * x; line();
     });
-    octx.setLineDash([]); octx.globalAlpha = 1;
+    octx.globalAlpha = 1;
     // ljudringar medan rösten talar
     for (let k = rings.length - 1; k >= 0; k--) {
       const r = rings[k]; r.t += 1 / 60; if (r.t > 1.6) { rings.splice(k, 1); continue; }
@@ -139,9 +129,12 @@
     for (let i = 0; i < voices.length; i++) {
       const at = labels[i]; if (!at) continue;
       const v = voices[i], strong = w[i] > .25;
-      octx.font = `${strong ? '600' : 'italic 400'} 13px Fraunces, Georgia, serif`; octx.textAlign = 'left';
-      octx.lineWidth = 3.5; octx.strokeStyle = dark() ? 'rgba(21,24,29,.85)' : 'rgba(250,246,238,.85)'; octx.strokeText(v.name, at[0], at[1]);
-      octx.fillStyle = ink; octx.globalAlpha = strong ? 1 : .72; octx.fillText(v.name, at[0], at[1]); octx.globalAlpha = 1;
+      octx.font = `${strong ? '600' : 'italic 400'} ${at[2]}px Fraunces, Georgia, serif`; octx.textAlign = 'left';
+      // under nålens huvud bleknar namnet i stället för att gömmas
+      const under = Math.abs(at[0] + at[3] / 2 - px) < at[3] / 2 + 12 && at[1] > py - 36 && at[1] < py + 4;
+      octx.lineJoin = 'round'; octx.miterLimit = 2;
+      octx.lineWidth = 3.5; octx.strokeStyle = dark() ? 'rgba(21,24,29,.85)' : 'rgba(250,246,238,.85)'; octx.globalAlpha = under ? .35 : 1; octx.strokeText(v.name, at[0], at[1]);
+      octx.fillStyle = ink; octx.globalAlpha = under ? .35 : strong ? 1 : .72; octx.fillText(v.name, at[0], at[1]); octx.globalAlpha = 1;
     }
     // nålen
     const bob = dragging ? -4 : 0, s = 1 + level * .5;
@@ -166,17 +159,21 @@
   /* ---------- namnens platser: räknas en gång per storlek, så att de aldrig flyttar sig medan nålen rör sig ---------- */
   let labels = [];
   function placeLabels() {
-    octx.font = '600 13px Fraunces, Georgia, serif';
-    const placed = [[W - 72, 8, W - 8, 72]], dots = voices.map(v => [v.x * W - 7, v.y * H - 7, v.x * W + 7, v.y * H + 7]);
+    const placed = [[8, H - 28, 140, H - 6], [W - 150, H - 28, W - 8, H - 6]];   // axeltexterna nere i hörnen
+    const dots = voices.map(v => [v.x * W - 7, v.y * H - 7, v.x * W + 7, v.y * H + 7]);
     const hit = (b, list) => list.some(o => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
     labels = voices.map((v, i) => {
-      const x = v.x * W, y = v.y * H, tw = octx.measureText(v.name).width, th = 15;
-      // höger, vänster, ovanför, under och snett: den första lediga platsen, annars inget namn
-      const spots = [[x + 10, y - th / 2], [x - 10 - tw, y - th / 2], [x - tw / 2, y - 9 - th], [x - tw / 2, y + 9], [x + 7, y - 6 - th], [x + 7, y + 6], [x - 7 - tw, y - 6 - th], [x - 7 - tw, y + 6]];
-      const others = dots.filter((_, k) => k !== i);
-      const at = spots.find(([sx, sy]) => { const b = [sx - 2, sy, sx + tw + 2, sy + th]; return sx > 4 && sx + tw < W - 4 && sy > 4 && sy + th < H - 4 && !hit(b, placed) && !hit(b, others); });
-      if (!at) return null;
-      placed.push([at[0] - 2, at[1], at[0] + tw + 2, at[1] + th]); return [at[0], at[1] + th / 2];
+      const x = v.x * W, y = v.y * H, others = dots.filter((_, k) => k !== i);
+      // 13 punkter om det går, annars 11, och först därefter inget namn
+      for (const size of [13, 11]) {
+        octx.font = `600 ${size}px Fraunces, Georgia, serif`;
+        const tw = octx.measureText(v.name).width, th = size + 2;
+        // höger, vänster, ovanför, under och snett: den första lediga platsen
+        const spots = [[x + 10, y - th / 2], [x - 10 - tw, y - th / 2], [x - tw / 2, y - 9 - th], [x - tw / 2, y + 9], [x + 7, y - 6 - th], [x + 7, y + 6], [x - 7 - tw, y - 6 - th], [x - 7 - tw, y + 6]];
+        const at = spots.find(([sx, sy]) => { const b = [sx - 2, sy, sx + tw + 2, sy + th]; return sx > 4 && sx + tw < W - 4 && sy > 4 && sy + th < H - 4 && !hit(b, placed) && !hit(b, others); });
+        if (at) { placed.push([at[0] - 2, at[1], at[0] + tw + 2, at[1] + th]); return [at[0], at[1] + th / 2, size, tw]; }
+      }
+      return null;
     });
   }
 
@@ -193,6 +190,7 @@
     const top = order[0];
     $('who').innerHTML = !top ? '–' : top[0] > .85 ? esc(voices[top[1]].name)
       : `${esc(voices[top[1]].name)} <em>med inslag av ${order.slice(1, 3).map(([, i]) => esc(voices[i].name)).join(' och ')}</em>`;
+    $('capWho').innerHTML = $('who').innerHTML;
     $('mix').innerHTML = order.slice(0, 5).map(([x, i]) => `<li><span class="nm">${esc(voices[i].name)}</span><span class="track"><i style="width:${(x * 100).toFixed(1)}%;background:${css(colorOf(voices[i]))}"></i></span><span class="pc">${Math.round(x * 100)} %</span></li>`).join('');
     try { history.replaceState(null, '', `#x=${pin.x.toFixed(3)}&y=${pin.y.toFixed(3)}`); } catch { }
   }
@@ -208,12 +206,12 @@
       ready = true; $('loading').classList.add('done'); $('play').disabled = false;
       $('status').textContent = 'Klart. Dra nålen eller tryck på Läs upp.'; return;
     }
-    if (m.error && m.id === undefined) { $('loadText').textContent = 'Rösterna kunde inte laddas.'; $('loadSmall').textContent = m.error; return; }
+    if (m.error && m.id === undefined) { console.error(m.error); $('loadText').textContent = 'Rösterna kunde inte laddas.'; $('loadSmall').textContent = 'Ladda om sidan och försök igen.'; return; }
     const w = waiting.get(m.id); if (!w) return; waiting.delete(m.id);
     m.error ? w.reject(new Error(m.error)) : w.resolve(m);
   };
   function synth(text, mix) {
-    const length = +$('tempo').value, noisew = +$('life').value;
+    const length = +(2.1 - $('tempo').value).toFixed(2), noisew = +$('life').value;
     const key = text + '|' + mix.map(x => x.toFixed(3)).join(',') + '|' + length + '|' + noisew;
     if (cache.has(key)) return Promise.resolve(cache.get(key));
     const id = nextId++;
@@ -238,8 +236,8 @@
     try {
       const m = await synth(text.slice(0, 600), weights(pin));
       play(m);
-      if (!quiet) { lastPcm = m; $('save').disabled = false; $('status').textContent = `${(m.pcm.length / m.sr).toFixed(1).replace('.', ',')} s tal, gjort på ${Math.round(performance.now() - t)} ms`; }
-    } catch (e) { $('status').textContent = 'Det gick inte: ' + e.message; }
+      if (!quiet) { lastPcm = m; $('save').disabled = false; $('status').textContent = `${(m.pcm.length / m.sr).toFixed(1).replace('.', ',')} sekunder`; }
+    } catch (e) { console.error(e); $('status').textContent = 'Det gick inte att läsa upp. Försök igen.'; }
     busy = false;
   }
   // en kort försmak medan nålen dras: bara när rösten inte redan arbetar, och högst ett par gånger i sekunden
@@ -254,7 +252,7 @@
   const at = e => { const r = map.getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; };
   map.addEventListener('pointerdown', e => {
     if (!voices.length) return;
-    audio(); map.focus(); dragging = true; map.setPointerCapture(e.pointerId);
+    audio(); map.focus({ preventScroll: true, focusVisible: false }); dragging = true; map.setPointerCapture(e.pointerId);
     pin = at(e); showMix(); preview();
   });
   map.addEventListener('pointermove', e => {
@@ -271,17 +269,18 @@
     else if (k === 's' || k === 'S') { randomSpot(); }
   });
   function randomSpot() {
-    // någonstans mellan två eller tre byar, inte mitt i en
-    const a = voices[Math.random() * voices.length | 0], b = voices[Math.random() * voices.length | 0], t = .25 + Math.random() * .5;
-    pin = { x: a.x + (b.x - a.x) * t + (Math.random() - .5) * .05, y: a.y + (b.y - a.y) * t + (Math.random() - .5) * .05 };
+    // mellan en röst och en av dess närmaste grannar, aldrig ovanpå en by: ingen röst får väga mer än 60 %
+    for (let tries = 0; tries < 30; tries++) {
+      const a = voices[Math.random() * voices.length | 0];
+      const near = voices.filter(v => v !== a).sort((p, q) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(q.x - a.x, q.y - a.y)).slice(0, 4);
+      const b = near[Math.random() * near.length | 0], t = .4 + Math.random() * .2, p = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      if (Math.max(...weights(p)) <= .6 || tries === 29) { pin = p; break; }
+    }
     showMix(); say();
   }
 
   /* ---------- reglage och knappar ---------- */
-  const num = x => (+x).toFixed(2).replace('.', ',');
-  $('tempo').oninput = () => { $('tempoV').textContent = num($('tempo').value); };
-  $('life').oninput = () => { $('lifeV').textContent = num($('life').value); };
-  $('spread').oninput = () => { sigma = +$('spread').value; $('spreadV').textContent = num(sigma); showMix(); clearTimeout(drawTerrain.t); drawTerrain.t = setTimeout(drawTerrain, 60); };
+  $('spread').oninput = () => { sigma = +$('spread').value; showMix(); clearTimeout(drawTerrain.t); drawTerrain.t = setTimeout(drawTerrain, 60); };
   $('play').onclick = () => say();
   $('random').onclick = () => { audio(); randomSpot(); };
   $('save').onclick = () => {
@@ -294,17 +293,15 @@
     a.download = `skansk-rost-${pin.x.toFixed(2)}-${pin.y.toFixed(2)}.wav`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   };
   const SENTENCES = [
-    'Hörru, ska vi ta färjan över till Helsingör i morgon?',
-    'Jag är född och uppvuxen på Söder, alldeles nära hamnen.',
-    'Det blir nog regn i eftermiddag, så ta med dig en jacka.',
-    'Kärnan syns ända ut på Sundet när solen går ner.',
-    'Vill du ha en kopp kaffe och en bit kaka?',
-    'Nu får du allt ta det lite lugnt, påg.',
+    ['Färjan till Helsingör', 'Hörru, ska vi ta färjan över till Helsingör i morgon?'],
+    ['Regn i eftermiddag', 'Det blir nog regn i eftermiddag, så ta med dig en jacka.'],
+    ['Kaffe och kaka', 'Vill du ha en kopp kaffe och en bit kaka?'],
+    ['Ta det lugnt', 'Nu får du allt ta det lite lugnt, påg.'],
   ];
-  $('chips').innerHTML = SENTENCES.map((s, i) => `<button class="chip" data-i="${i}">${esc(s.split(' ').slice(0, 3).join(' '))} …</button>`).join('');
-  $('chips').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; $('text').value = SENTENCES[b.dataset.i]; say(); };
+  $('chips').innerHTML = SENTENCES.map(([label], i) => `<button class="chip" data-i="${i}">${esc(label)}</button>`).join('');
+  $('chips').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; $('text').value = SENTENCES[b.dataset.i][1]; say(); };
   $('text').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); say(); } });
-  const themeIcon = () => { $('theme').textContent = dark() ? '☀' : '☾'; };
+  const themeIcon = () => { $('theme').textContent = dark() ? '☀' : '☾'; $('theme').setAttribute('aria-label', dark() ? 'Byt till ljust läge' : 'Byt till mörkt läge'); };
   $('theme').onclick = () => {
     const now = dark(); document.documentElement.dataset.theme = now ? 'light' : 'dark'; themeIcon();
     try { localStorage.setItem('roster-tema', document.documentElement.dataset.theme); } catch { }
@@ -314,13 +311,24 @@
   themeIcon();
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => voices.length && drawTerrain());
 
+  function valley() {
+    let best = { x: .5, y: .5 }, score = 9;
+    for (let j = 2; j < 38; j++) for (let i = 2; i < 38; i++) {
+      const p = { x: i / 40, y: j / 40 }, w = weights(p), top = w.map((x, k) => [x, k]).sort((a, b) => b[0] - a[0]).slice(0, 3);
+      const both = top.some(([x, k]) => x > .15 && voices[k].sex === 'f') && top.some(([x, k]) => x > .15 && voices[k].sex === 'm');
+      const near = Math.min(...voices.map(v => Math.hypot(v.x - p.x, v.y - p.y)));
+      if (both && near < .12 && top[0][0] < score) { score = top[0][0]; best = p; }
+    }
+    return best;
+  }
+
   /* ---------- start ---------- */
   fetch('modell/roster.json').then(r => r.json()).then(meta => {
     voices = meta.voices;
     const h = new URLSearchParams(location.hash.slice(1));
     if (h.has('x') && h.has('y')) pin = { x: +h.get('x'), y: +h.get('y') };
-    else { const a = voices[0], b = voices[1]; pin = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
-    resize(); showMix(); requestAnimationFrame(loop);
+    else pin = valley();
+    resize(); if (!(h.has('x') && h.has('y'))) pin = valley(); showMix(); requestAnimationFrame(loop);
     document.fonts.ready.then(() => resize());   // namnens platser mäts med sidans eget typsnitt
   });
   worker.postMessage({ load: base });
