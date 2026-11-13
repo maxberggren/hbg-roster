@@ -7,7 +7,7 @@
   const base = new URL('.', location.href).href;
   const map = $('map'), terrain = $('terrain'), overlay = $('overlay'), tctx = terrain.getContext('2d'), octx = overlay.getContext('2d');
   let voices = [], ready = false, W = 0, H = 0, dpr = 1, S = 1;   // S: kartans skala (det kortaste av bredd och höjd)
-  let pin = { x: .5, y: .5 }, sigma = .07, hover = -1, dragging = false, lastPcm = null;
+  let pin = { x: .5, y: .5 }, sigma = .06, dragging = false, lastPcm = null;
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
   /* ---------- färger: kvinnorösterna i varma toner, mansrösterna i kalla, olika efter höjd på kartan ---------- */
@@ -128,30 +128,20 @@
       octx.beginPath(); octx.arc(r.x, r.y, 10 + r.t * 70, 0, Math.PI * 2); octx.stroke();
     }
     octx.globalAlpha = 1;
-    // byarna: prickarna först, sedan namnen där de får plats (de som hörs och den under muspekaren väljer först)
+    // byarna, och namnen på sina fasta platser
     octx.textBaseline = 'middle';
     voices.forEach((v, i) => {
-      const x = v.x * W, y = v.y * H, on = w[i], c = css(colorOf(v)), big = i === hover || on > .25;
+      const x = v.x * W, y = v.y * H, on = w[i], c = css(colorOf(v)), big = on > .25;
       octx.fillStyle = c; octx.strokeStyle = dark() ? '#15181d' : '#faf6ee'; octx.lineWidth = 2;
       octx.beginPath(); octx.arc(x, y, big ? 6 : 4.5, 0, Math.PI * 2); octx.fill(); octx.stroke();
       if (on > .05) { octx.strokeStyle = c; octx.lineWidth = 1.5; octx.beginPath(); octx.arc(x, y, 9 + 6 * on, 0, Math.PI * 2); octx.stroke(); }
     });
-    const placed = [[W - 72, 8, W - 8, 72]], dots = voices.map(v => [v.x * W - 7, v.y * H - 7, v.x * W + 7, v.y * H + 7]);
-    const hit = (b, list) => list.some(o => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
-    const order = voices.map((v, i) => i).sort((a, b) => (b === hover) - (a === hover) || w[b] - w[a]);
-    for (const i of order) {
-      const v = voices[i], x = v.x * W, y = v.y * H, big = i === hover || w[i] > .25;
-      octx.font = `${big ? '600 ' : 'italic '}${big ? 14 : 13}px Fraunces, Georgia, serif`;
-      const tw = octx.measureText(v.name).width, th = 15;
-      // höger, vänster, ovanför, under och snett: den första lediga platsen
-      const spots = [[x + 10, y - th / 2], [x - 10 - tw, y - th / 2], [x - tw / 2, y - 9 - th], [x - tw / 2, y + 9], [x + 7, y - 6 - th], [x + 7, y + 6], [x - 7 - tw, y - 6 - th], [x - 7 - tw, y + 6]];
-      const others = dots.filter((_, k) => k !== i);
-      let at = spots.find(([sx, sy]) => { const b = [sx - 2, sy, sx + tw + 2, sy + th]; return sx > 4 && sx + tw < W - 4 && sy > 4 && sy + th < H - 4 && !hit(b, placed) && !hit(b, others); });
-      if (!at) { if (!big) continue; at = spots[x < W - 90 ? 0 : 1]; }
-      placed.push([at[0] - 2, at[1], at[0] + tw + 2, at[1] + th]);
-      octx.textAlign = 'left'; const tx = at[0], ty = at[1] + th / 2;
-      octx.lineWidth = 3.5; octx.strokeStyle = dark() ? 'rgba(21,24,29,.85)' : 'rgba(250,246,238,.85)'; octx.strokeText(v.name, tx, ty);
-      octx.fillStyle = ink; octx.globalAlpha = big ? 1 : .78; octx.fillText(v.name, tx, ty); octx.globalAlpha = 1;
+    for (let i = 0; i < voices.length; i++) {
+      const at = labels[i]; if (!at) continue;
+      const v = voices[i], strong = w[i] > .25;
+      octx.font = `${strong ? '600' : 'italic 400'} 13px Fraunces, Georgia, serif`; octx.textAlign = 'left';
+      octx.lineWidth = 3.5; octx.strokeStyle = dark() ? 'rgba(21,24,29,.85)' : 'rgba(250,246,238,.85)'; octx.strokeText(v.name, at[0], at[1]);
+      octx.fillStyle = ink; octx.globalAlpha = strong ? 1 : .72; octx.fillText(v.name, at[0], at[1]); octx.globalAlpha = 1;
     }
     // nålen
     const bob = dragging ? -4 : 0, s = 1 + level * .5;
@@ -173,11 +163,28 @@
     drawOverlay(); requestAnimationFrame(loop);
   }
 
+  /* ---------- namnens platser: räknas en gång per storlek, så att de aldrig flyttar sig medan nålen rör sig ---------- */
+  let labels = [];
+  function placeLabels() {
+    octx.font = '600 13px Fraunces, Georgia, serif';
+    const placed = [[W - 72, 8, W - 8, 72]], dots = voices.map(v => [v.x * W - 7, v.y * H - 7, v.x * W + 7, v.y * H + 7]);
+    const hit = (b, list) => list.some(o => b[0] < o[2] && b[2] > o[0] && b[1] < o[3] && b[3] > o[1]);
+    labels = voices.map((v, i) => {
+      const x = v.x * W, y = v.y * H, tw = octx.measureText(v.name).width, th = 15;
+      // höger, vänster, ovanför, under och snett: den första lediga platsen, annars inget namn
+      const spots = [[x + 10, y - th / 2], [x - 10 - tw, y - th / 2], [x - tw / 2, y - 9 - th], [x - tw / 2, y + 9], [x + 7, y - 6 - th], [x + 7, y + 6], [x - 7 - tw, y - 6 - th], [x - 7 - tw, y + 6]];
+      const others = dots.filter((_, k) => k !== i);
+      const at = spots.find(([sx, sy]) => { const b = [sx - 2, sy, sx + tw + 2, sy + th]; return sx > 4 && sx + tw < W - 4 && sy > 4 && sy + th < H - 4 && !hit(b, placed) && !hit(b, others); });
+      if (!at) return null;
+      placed.push([at[0] - 2, at[1], at[0] + tw + 2, at[1] + th]); return [at[0], at[1] + th / 2];
+    });
+  }
+
   /* ---------- storlek ---------- */
   function resize() {
     const r = map.getBoundingClientRect(); dpr = Math.min(2, devicePixelRatio || 1); W = r.width; H = r.height; S = Math.min(W, H);
     for (const c of [terrain, overlay]) { c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
-    if (voices.length) drawTerrain();
+    if (voices.length) { drawTerrain(); placeLabels(); }
   }
 
   /* ---------- panelen: vem som hörs ---------- */
@@ -236,29 +243,23 @@
     busy = false;
   }
   // en kort försmak medan nålen dras: bara när rösten inte redan arbetar, och högst ett par gånger i sekunden
-  let lastPreview = 0;
+  const GREETINGS = ['Hej!', 'Tjena!', 'Hallå där!', 'God dag!'];
+  let lastPreview = 0, greet = 0;
   function preview() {
     if (!ready || !$('preview').checked || busy || performance.now() - lastPreview < 550) return;
-    lastPreview = performance.now(); say('Hörru!', true);
+    lastPreview = performance.now(); say(GREETINGS[greet++ % GREETINGS.length], true);
   }
 
   /* ---------- nålen ---------- */
   const at = e => { const r = map.getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; };
-  function nearVoice(p) {
-    let best = -1, bd = 1e9;
-    voices.forEach((v, i) => { const d = Math.hypot((v.x - p.x) * W, (v.y - p.y) * H); if (d < bd) { bd = d; best = i; } });
-    return bd < 14 ? best : -1;
-  }
   map.addEventListener('pointerdown', e => {
     if (!voices.length) return;
     audio(); map.focus(); dragging = true; map.setPointerCapture(e.pointerId);
-    const p = at(e), v = nearVoice(p);
-    pin = v >= 0 ? { x: voices[v].x, y: voices[v].y } : p; showMix(); preview();
+    pin = at(e); showMix(); preview();
   });
   map.addEventListener('pointermove', e => {
     const p = at(e);
     if (dragging) { pin = p; showMix(); preview(); }
-    else { hover = nearVoice(p); map.style.cursor = hover >= 0 ? 'pointer' : 'crosshair'; }
   });
   const release = () => { if (!dragging) return; dragging = false; say(); };
   map.addEventListener('pointerup', release); map.addEventListener('pointercancel', release);
@@ -320,6 +321,7 @@
     if (h.has('x') && h.has('y')) pin = { x: +h.get('x'), y: +h.get('y') };
     else { const a = voices[0], b = voices[1]; pin = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 }; }
     resize(); showMix(); requestAnimationFrame(loop);
+    document.fonts.ready.then(() => resize());   // namnens platser mäts med sidans eget typsnitt
   });
   worker.postMessage({ load: base });
   new ResizeObserver(() => resize()).observe(map);
