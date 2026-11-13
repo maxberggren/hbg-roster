@@ -36,7 +36,7 @@
   function drawTerrain() {
     const step = 3, gw = Math.ceil(W / step) + 1, gh = Math.ceil(H / step) + 1;
     const field = new Float32Array(gw * gh), img = tctx.createImageData(gw, gh), paper = dark() ? [21, 24, 29] : [243, 237, 224];
-    const cols = voices.map(colorOf), fem = voices.map(v => v.sex === 'f' ? 1 : 0), gold = dark() ? hsl(42, 76, 54) : hsl(40, 78, 52), sg = sigma, inv = 1 / (2 * .028 * .028), cinv = 1 / (2 * (sg * 1.8) ** 2);
+    const cols = voices.map(colorOf), fem = voices.map(v => v.sex === 'f' ? 1 : 0), gold = dark() ? hsl(42, 76, 54) : hsl(40, 78, 52), sg = sigma, inv = 1 / (2 * sg * sg), cinv = 1 / (2 * .11 * .11);
     for (let j = 0; j < gh; j++) for (let i = 0; i < gw; i++) {
       const px = i * step / W, py = j * step / H;
       // höjden (kurvorna) följer rösternas räckvidd; färgen är blandningen själv, lika stark ända in i dalarna mellan
@@ -66,7 +66,7 @@
     tctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     // höjdkurvor (marching squares), var femte lite kraftigare
     const levels = [];
-    levels.push(.18, .32, .46, .6, .74, .86, .95);
+    for (let k = 1; k <= 14; k++) levels.push(.08 * Math.pow(1.32, k));
     levels.forEach((lv, li) => {
       tctx.beginPath();
       for (let j = 0; j < gh - 1; j++) for (let i = 0; i < gw - 1; i++) {
@@ -87,7 +87,7 @@
           case 10: seg(top, right); seg(left, bottom); break;
         }
       }
-      const strong = li === 2;
+      const strong = li % 5 === 4;
       tctx.strokeStyle = dark() ? `rgba(236,229,214,${strong ? .22 : .1})` : `rgba(70,50,30,${strong ? .26 : .12})`;
       tctx.lineWidth = strong ? 1.1 : .7; tctx.stroke();
     });
