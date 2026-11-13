@@ -184,14 +184,8 @@
     if (voices.length) { drawTerrain(); placeLabels(); }
   }
 
-  /* ---------- panelen: vem som hörs ---------- */
+  // nålens plats sparas i adressen, så att en länk tar en till samma röst
   function showMix() {
-    const w = weights(pin), order = w.map((x, i) => [x, i]).filter(([x]) => x > .02).sort((a, b) => b[0] - a[0]);
-    const top = order[0];
-    $('who').innerHTML = !top ? '–' : top[0] > .85 ? esc(voices[top[1]].name)
-      : `${esc(voices[top[1]].name)} <em>med inslag av ${order.slice(1, 3).map(([, i]) => esc(voices[i].name)).join(' och ')}</em>`;
-    $('capWho').innerHTML = $('who').innerHTML;
-    $('mix').innerHTML = order.slice(0, 5).map(([x, i]) => `<li><span class="nm">${esc(voices[i].name)}</span><span class="track"><i style="width:${(x * 100).toFixed(1)}%;background:${css(colorOf(voices[i]))}"></i></span><span class="pc">${Math.round(x * 100)} %</span></li>`).join('');
     try { history.replaceState(null, '', `#x=${pin.x.toFixed(3)}&y=${pin.y.toFixed(3)}`); } catch { }
   }
   const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
