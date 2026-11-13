@@ -91,10 +91,10 @@
       tctx.strokeStyle = dark() ? `rgba(236,229,214,${strong ? .22 : .1})` : `rgba(70,50,30,${strong ? .26 : .12})`;
       tctx.lineWidth = strong ? 1.1 : .7; tctx.stroke();
     });
-    // färgnyckeln längs kartans nederkant: kvinnoröster till vänster, guldet i mitten, mansröster till höger
+    // färgnyckeln längs kartans nederkant: kvinnoröster till vänster, mansröster till höger
     const keyCol = v => css(v ? colorOf(v) : dark() ? hsl(42, 76, 54) : hsl(40, 78, 52));
     tctx.font = `italic ${W < 420 ? 11 : 12.5}px Fraunces, Georgia, serif`; tctx.textBaseline = 'middle';
-    const key = [['kvinnoröster', voices.find(v => v.sex === 'f'), 'left'], ['guld där de möts', null, 'center'], ['mansröster', voices.find(v => v.sex === 'm'), 'right']];
+    const key = [['kvinnoröster', voices.find(v => v.sex === 'f'), 'left'], ['mansröster', voices.find(v => v.sex === 'm'), 'right']];
     legendBox = [];
     key.forEach(([t, v, side]) => {
       const tw = tctx.measureText(t).width, y = H - 17, x0 = side === 'left' ? 14 : side === 'right' ? W - 14 - tw - 12 : W / 2 - (tw + 12) / 2;
