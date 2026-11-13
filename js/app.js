@@ -116,7 +116,7 @@
     w.forEach((x, i) => {
       if (x < .03) return;
       const v = voices[i], line = () => { octx.beginPath(); octx.moveTo(px, py); octx.lineTo(v.x * W, v.y * H); octx.stroke(); };
-      octx.globalAlpha = .7; octx.strokeStyle = dark() ? '#15181d' : '#faf6ee'; octx.lineWidth = 1.5 + 7 * x + 2; line();
+      octx.globalAlpha = .35; octx.strokeStyle = dark() ? '#15181d' : '#faf6ee'; octx.lineWidth = 1.5 + 7 * x + 1; line();
       octx.globalAlpha = .45 + .5 * x; octx.strokeStyle = css(colorOf(v)); octx.lineWidth = 1.5 + 7 * x; line();
     });
     octx.globalAlpha = 1;
@@ -143,7 +143,13 @@
       if (heard) {
         const hs = 1.2 + level * .5, head = [px - 12 * hs, py - 32 * hs, px + 12 * hs, py + 2];
         const box = a => a[0] < head[2] && a[0] + a[3] > head[0] && a[1] - 8 < head[3] && a[1] + 8 > head[1];
-        if (box(at)) { const vx = voices[i].x * W, mx = at[0] > vx ? vx - 10 - at[3] : vx + 10; at = [mx, voices[i].y * H, at[2], at[3]]; }
+        if (box(at)) {
+          const vx = voices[i].x * W, vy = voices[i].y * H, mx = at[0] > vx ? vx - 10 - at[3] : vx + 10, alt = [mx, vy, at[2], at[3]];
+          const b = [alt[0] - 2, vy - at[2] / 2 - 1, alt[0] + alt[3] + 2, vy + at[2] / 2 + 1];
+          const clash = labels.some((l, k) => l && k !== i && b[0] < l[0] + l[3] && b[2] > l[0] && b[1] < l[1] + 8 && b[3] > l[1] - 8)
+            || voices.some((o, k) => k !== i && Math.abs(o.x * W - (b[0] + b[2]) / 2) < (b[2] - b[0]) / 2 + 6 && Math.abs(o.y * H - vy) < 12);
+          if (!clash && alt[0] > 4 && alt[0] + alt[3] < W - 4) at = alt;
+        }
       }
       const under = !heard && Math.abs(at[0] + at[3] / 2 - px) < at[3] / 2 + 14 && at[1] > py - 42 && at[1] < py + 4;
       octx.lineJoin = 'round'; octx.miterLimit = 2;
@@ -199,11 +205,11 @@
     labels = voices.map((v, i) => {
       const x = v.x * W, y = v.y * H, others = dots.filter((_, k) => k !== i);
       // 13 punkter om det går, annars 11, och först därefter inget namn
-      for (const size of W < 420 ? [12, 11] : [13, 11]) {
+      for (const size of W < 420 ? [12, 11, 10] : [13, 11]) {
         octx.font = `600 ${size}px Fraunces, Georgia, serif`;
         const tw = octx.measureText(v.name).width, th = size + 2;
         // höger, vänster, ovanför, under och snett: den första lediga platsen
-        const spots = [[x + 10, y - th / 2], [x + 7, y - 6 - th], [x + 7, y + 6], [x - 10 - tw, y - th / 2], [x - 7 - tw, y - 6 - th], [x - 7 - tw, y + 6], [x - tw / 2, y - 9 - th], [x - tw / 2, y + 9]];
+        const spots = [[x + 10, y - th / 2], [x + 7, y - 6 - th], [x + 7, y + 6], [x - 10 - tw, y - th / 2], [x - 7 - tw, y - 6 - th], [x - 7 - tw, y + 6], [x - tw / 2, y - 9 - th], [x - tw / 2, y + 9], [x + 10, y - th - 2], [x + 10, y + 2], [x - 10 - tw, y - th - 2], [x - 10 - tw, y + 2]];
         const at = spots.find(([sx, sy]) => { const b = [sx - 2, sy, sx + tw + 2, sy + th]; return sx > 4 && sx + tw < W - 4 && sy > 4 && sy + th < H - 4 && !hit(b, placed) && !hit(b, others) && ownNearest(i, b); });
         if (at) { placed.push([at[0] - 2, at[1], at[0] + tw + 2, at[1] + th]); return [at[0], at[1] + th / 2, size, tw]; }
       }
@@ -340,7 +346,7 @@
       const near = Math.min(...voices.map(v => Math.hypot(v.x - p.x, v.y - p.y)));
       // nålens huvud får inte täcka något namn
       const hx = p.x * W, hy = p.y * H, free = labels.every(l => !l || l[0] > hx + 16 || l[0] + l[3] < hx - 16 || l[1] - 8 > hy + 4 || l[1] + 8 < hy - 42);
-      if (both && free && near < .12 && top[0][0] < score) { score = top[0][0]; best = p; }
+      if (both && free && top.every(([, k]) => labels[k]) && near < .12 && top[0][0] < score) { score = top[0][0]; best = p; }
     }
     return best;
   }
