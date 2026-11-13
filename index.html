@@ -87,11 +87,7 @@
   label.check { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
   label.check input { accent-color: var(--red); }
 
-  .about { display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; padding: 28px 0 56px; border-top: 1px solid var(--line); }
-  @media (max-width: 900px) { .about { grid-template-columns: 1fr; gap: 8px; } }
-  .about h3 { font: 600 19px/1.3 var(--serif); margin: 0 0 6px; }
-  .about p { margin: 0 0 12px; color: var(--ink-2); font-size: 15px; }
-  footer { color: var(--ink-3); font-size: 13px; padding: 0 0 40px; }
+  footer { color: var(--ink-3); font-size: 13px; padding: 36px 0 40px; }
   .theme { position: absolute; top: 16px; right: 16px; background: var(--card); border: 1px solid var(--line); color: var(--ink-2); border-radius: 999px; width: 36px; height: 36px; cursor: pointer; font-size: 16px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
@@ -152,22 +148,6 @@
     </aside>
   </main>
 
-  <section class="about">
-    <div>
-      <h3>Vad är det här?</h3>
-      <p>En talsyntes som pratar skånska. Den har lärt sig av inspelade samtal med människor från Helsingborg och byarna runt omkring: hur de låter, hur melodin går och hur vokalerna glider.</p>
-      <p>Varje by på kartan är en röst. Mellan byarna finns inga inspelningar alls; där blandar modellen rösterna, och varje punkt på kartan är en röst som aldrig funnits.</p>
-    </div>
-    <div>
-      <h3>Hur kartan är ritad</h3>
-      <p>Röster som låter lika ligger nära varandra. Avstånden kommer från en modell för talarigenkänning som jämför hur rösterna klingar, och hundratals mått har pressats ihop till två. Ljusare röster hamnade till vänster, mörkare till höger.</p>
-      <p>Kvinnorösterna fick varma färger, mansrösterna kalla, och där de möts lyser kartan guld: där finns röster som ingen haft. Namnen är påhittade.</p>
-    </div>
-    <div>
-      <h3>Allt sker hos dig</h3>
-      <p>Modellen, drygt 30 MB med allt, körs i din webbläsare. Ingen text och inget ljud skickas någonstans. Uttalet bygger på skånska regler och blir ibland fel, särskilt i namn.</p>
-    </div>
-  </section>
   <footer>Rösterna är syntetiska och namnen påhittade. Bygger på Piper och en svensk grundröst från KBLab.</footer>
 </div>
 <script src="js/app.js"></script>
