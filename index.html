@@ -79,21 +79,25 @@
   button.sub { background: transparent; color: var(--ink); border-color: var(--line); }
   button.sub:hover { border-color: var(--ink-3); }
   button.sub:disabled { opacity: .45; cursor: default; }
-  .status { margin-top: 10px; font-size: 13px; color: var(--ink-3); min-height: 20px; }
+  .status { margin-top: 10px; font-size: 13px; color: var(--ink-3); }
+  .status:empty { display: none; }
+  button[hidden] { display: none; }
 
   .knob { display: grid; grid-template-columns: 1fr; gap: 2px; margin-top: 12px; font-size: 14px; }
-  .knob input { grid-column: 1 / -1; width: 100%; accent-color: var(--red); }
+  .knob input { grid-column: 1 / -1; width: 100%; -webkit-appearance: none; appearance: none; height: 4px; border-radius: 4px; margin: 10px 0 8px; cursor: pointer;
+    background: linear-gradient(90deg, var(--red) var(--p, 50%), var(--line) var(--p, 50%)); }
+  .knob input::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--red); border: 3px solid var(--card); box-shadow: 0 0 0 1px var(--red); }
+  .knob input::-moz-range-thumb { width: 12px; height: 12px; border-radius: 50%; background: var(--red); border: 3px solid var(--card); box-shadow: 0 0 0 1px var(--red); }
+  .knob input:focus-visible { outline: 2px solid var(--yellow); outline-offset: 6px; }
   .knob .ends { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 12px; color: var(--ink-3); margin-top: -2px; }
-  label.check { display: flex; gap: 8px; align-items: center; margin-top: 14px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
-  label.check input { accent-color: var(--red); }
 
   footer { color: var(--ink-3); font-size: 13px; padding: 36px 0 40px; }
-  .theme { position: absolute; top: 16px; right: 16px; background: var(--card); border: 1px solid var(--line); color: var(--ink-2); border-radius: 999px; width: 36px; height: 36px; cursor: pointer; font-size: 16px; }
+  .theme { display: grid; place-items: center; position: absolute; top: 16px; right: 16px; background: var(--card); border: 1px solid var(--line); color: var(--ink-2); border-radius: 999px; width: 36px; height: 36px; cursor: pointer; font-size: 16px; }
   .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
 <body>
-<button class="theme" id="theme" aria-label="Byt till mörkt läge">☾</button>
+<button class="theme" id="theme" aria-label="Byt till ljust läge"></button>
 <div class="wrap">
   <header>
     <div class="kicker"><svg viewBox="0 0 20 14" aria-hidden="true"><rect width="20" height="14" fill="#c8102e"/><rect x="5.5" width="3" height="14" fill="#f2b705"/><rect y="5.5" width="20" height="3" fill="#f2b705"/></svg>Röstkarta · nordvästra Skåne</div>
@@ -103,7 +107,7 @@
 
   <main>
     <section class="mapcard" aria-label="Röstkartan">
-      <div class="map" id="map" tabindex="0" role="application" aria-label="Röstkarta. Dra nålen, eller flytta den med piltangenterna. Enter läser upp texten.">
+      <div class="map" id="map" tabindex="0" role="application" aria-label="Röstkarta. Dra nålen eller flytta den med piltangenterna. Enter läser upp, S slumpar en plats.">
         <canvas id="terrain"></canvas>
         <canvas id="overlay"></canvas>
       </div>
@@ -122,12 +126,12 @@
     <aside>
       <section class="card">
         <label class="sr" for="text">Text som ska läsas upp</label>
-        <textarea id="text" spellcheck="false" aria-label="Text som ska läsas upp">Jag är född och uppvuxen på Tågaborg, i en tjusig villa.</textarea>
+        <textarea id="text" spellcheck="false" aria-label="Text som ska läsas upp">Jag är född och uppvuxen på Tågaborg. Det var en redit bra tid.</textarea>
         <div class="chips" id="chips"></div>
         <div class="row">
           <button class="main" id="play" disabled>▶ Läs upp</button>
-          <button class="sub" id="random" title="Slumpa en plats på kartan">⚄ Slumpa</button>
-          <button class="sub" id="save" disabled title="Spara den senaste repliken som ljudfil">↓ Spara</button>
+          <button class="sub" id="random" title="Slumpa en plats på kartan"><svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12" rx="3" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="4.5" cy="4.5" r="1.1" fill="currentColor"/><circle cx="9.5" cy="9.5" r="1.1" fill="currentColor"/><circle cx="7" cy="7" r="1.1" fill="currentColor"/><circle cx="9.5" cy="4.5" r="1.1" fill="currentColor"/><circle cx="4.5" cy="9.5" r="1.1" fill="currentColor"/></svg> Slumpa</button>
+          <button class="sub" id="save" hidden title="Spara uppläsningen som ljudfil">↓ Spara</button>
         </div>
         <div class="status" id="status"></div>
       </section>
@@ -140,10 +144,9 @@
         <div class="knob"><label for="life">Livlighet</label>
           <input type="range" id="life" min="0" max="1.4" step="0.01" value="0.67">
           <div class="ends"><span>jämn</span><span>levande</span></div></div>
-        <div class="knob"><label for="spread">Hur långt en röst når</label>
+        <div class="knob"><label for="spread">Räckvidd</label>
           <input type="range" id="spread" min="0.03" max="0.2" step="0.005" value="0.06">
           <div class="ends"><span>rena röster</span><span>allt flyter ihop</span></div></div>
-        <label class="check"><input type="checkbox" id="preview"> Säg hej medan du drar</label>
       </section>
     </aside>
   </main>

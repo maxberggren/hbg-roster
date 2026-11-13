@@ -184,6 +184,9 @@
 
   /* ---------- namnens platser: räknas en gång per storlek, så att de aldrig flyttar sig medan nålen rör sig ---------- */
   let labels = [], legendBox = [];
+  // ett namn hör till den prick som ligger närmast det: ingen annan by får ligga närmare namnet än den egna
+  const boxDist = (v, b) => Math.hypot(Math.max(b[0] - v.x * W, 0, v.x * W - b[2]), Math.max(b[1] - v.y * H, 0, v.y * H - b[3]));
+  const ownNearest = (i, b) => { const d = boxDist(voices[i], b); return voices.every((v, k) => k === i || boxDist(v, b) > d + 3); };
   function placeLabels() {
     const placed = [...legendBox];   // färgnyckeln längs nederkanten
     const dots = voices.map(v => [v.x * W - 7, v.y * H - 7, v.x * W + 7, v.y * H + 7]);
@@ -195,8 +198,8 @@
         octx.font = `600 ${size}px Fraunces, Georgia, serif`;
         const tw = octx.measureText(v.name).width, th = size + 2;
         // höger, vänster, ovanför, under och snett: den första lediga platsen
-        const spots = [[x + 10, y - th / 2], [x - 10 - tw, y - th / 2], [x - tw / 2, y - 9 - th], [x - tw / 2, y + 9], [x + 7, y - 6 - th], [x + 7, y + 6], [x - 7 - tw, y - 6 - th], [x - 7 - tw, y + 6]];
-        const at = spots.find(([sx, sy]) => { const b = [sx - 2, sy, sx + tw + 2, sy + th]; return sx > 4 && sx + tw < W - 4 && sy > 4 && sy + th < H - 4 && !hit(b, placed) && !hit(b, others); });
+        const spots = [[x + 10, y - th / 2], [x + 7, y - 6 - th], [x + 7, y + 6], [x - 10 - tw, y - th / 2], [x - 7 - tw, y - 6 - th], [x - 7 - tw, y + 6], [x - tw / 2, y - 9 - th], [x - tw / 2, y + 9]];
+        const at = spots.find(([sx, sy]) => { const b = [sx - 2, sy, sx + tw + 2, sy + th]; return sx > 4 && sx + tw < W - 4 && sy > 4 && sy + th < H - 4 && !hit(b, placed) && !hit(b, others) && ownNearest(i, b); });
         if (at) { placed.push([at[0] - 2, at[1], at[0] + tw + 2, at[1] + th]); return [at[0], at[1] + th / 2, size, tw]; }
       }
       return null;
@@ -255,28 +258,20 @@
     try {
       const m = await synth(text.slice(0, 600), weights(aim()));
       play(m);
-      if (!quiet) { lastPcm = m; $('save').disabled = false; $('status').textContent = ''; }
+      if (!quiet) { lastPcm = m; $('save').hidden = false; $('status').textContent = ''; }
     } catch (e) { console.error(e); $('status').textContent = 'Det gick inte att läsa upp. Försök igen.'; }
     busy = false;
   }
-  // en kort försmak medan nålen dras: bara när rösten inte redan arbetar, och högst ett par gånger i sekunden
-  const GREETINGS = ['Hej!', 'Tjena!', 'Hallå där!', 'God dag!'];
-  let lastPreview = 0, greet = 0;
-  function preview() {
-    if (!ready || !$('preview').checked || busy || performance.now() - lastPreview < 550) return;
-    lastPreview = performance.now(); say(GREETINGS[greet++ % GREETINGS.length], true);
-  }
-
   /* ---------- nålen ---------- */
   const at = e => { const r = map.getBoundingClientRect(); return { x: Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)), y: Math.min(1, Math.max(0, (e.clientY - r.top) / r.height)) }; };
   map.addEventListener('pointerdown', e => {
     if (!voices.length) return;
     moved = true; audio(); map.focus({ preventScroll: true, focusVisible: false }); dragging = true; map.setPointerCapture(e.pointerId);
-    glide = null; pin = at(e); showMix(); preview();
+    glide = null; pin = at(e); showMix();
   });
   map.addEventListener('pointermove', e => {
     const p = at(e);
-    if (dragging) { pin = p; showMix(); preview(); }
+    if (dragging) { pin = p; showMix(); }
   });
   const release = () => { if (!dragging) return; dragging = false; say(); };
   map.addEventListener('pointerup', release); map.addEventListener('pointercancel', release);
@@ -299,6 +294,8 @@
   }
 
   /* ---------- reglage och knappar ---------- */
+  const fill = el => el.style.setProperty('--p', (el.value - el.min) / (el.max - el.min) * 100 + '%');
+  document.querySelectorAll('.knob input').forEach(el => { fill(el); el.addEventListener('input', () => fill(el)); });
   $('spread').oninput = () => { sigma = +$('spread').value; showMix(); clearTimeout(drawTerrain.t); drawTerrain.t = setTimeout(drawTerrain, 60); };
   $('play').onclick = () => say();
   $('random').onclick = () => { audio(); randomSpot(); };
@@ -320,7 +317,7 @@
   $('chips').innerHTML = SENTENCES.map(([label], i) => `<button class="chip" data-i="${i}">${esc(label)}</button>`).join('');
   $('chips').onclick = e => { const b = e.target.closest('.chip'); if (!b) return; $('text').value = SENTENCES[b.dataset.i][1]; say(); };
   $('text').addEventListener('keydown', e => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); say(); } });
-  const themeIcon = () => { $('theme').textContent = dark() ? '☀' : '☾'; $('theme').setAttribute('aria-label', dark() ? 'Byt till ljust läge' : 'Byt till mörkt läge'); };
+  const themeIcon = () => { $('theme').innerHTML = dark() ? '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="3"/><path d="M8 1v1.6M8 13.4V15M1 8h1.6M13.4 8H15M3.05 3.05l1.13 1.13M11.82 11.82l1.13 1.13M3.05 12.95l1.13-1.13M11.82 4.18l1.13-1.13"/></svg>' : '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13.5 9.6A5.8 5.8 0 0 1 6.4 2.5a5.8 5.8 0 1 0 7.1 7.1z"/></svg>'; $('theme').setAttribute('aria-label', dark() ? 'Byt till ljust läge' : 'Byt till mörkt läge'); };
   $('theme').onclick = () => {
     const now = dark(); document.documentElement.dataset.theme = now ? 'light' : 'dark'; themeIcon();
     try { localStorage.setItem('roster-tema', document.documentElement.dataset.theme); } catch { }
